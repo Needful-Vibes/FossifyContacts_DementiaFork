@@ -28,6 +28,8 @@ class MyWidgetConfigureActivity : SimpleActivity() {
     private val binding by viewBinding(WidgetConfigureMyBinding::inflate)
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // fixed widget config theme, dynamic theming would break the look of the picker
+        useDynamicTheme = false
         super.onCreate(savedInstanceState)
         setContentView(binding.root)
 

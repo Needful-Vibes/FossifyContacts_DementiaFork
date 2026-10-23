@@ -240,9 +240,9 @@
         <activity
             android:name=".activities.MyWidgetConfigureActivity"
             android:configChanges="orientation"
-            android:exported="false"
+            android:exported="true"
             android:label="@string/widget_call_contact"
-            android:theme="@style/TranslucentTheme">
+            android:theme="@style/MyWidgetConfigTheme">
 
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
@@ -251,11 +251,12 @@
 
         <receiver
             android:name=".widgets.MyWidgetProvider"
-            android:exported="false"
+            android:exported="true"
             android:label="@string/widget_call_contact">
 
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.appwidget.action.APPWIDGET_ENABLED" />
             </intent-filter>
 
             <meta-data
