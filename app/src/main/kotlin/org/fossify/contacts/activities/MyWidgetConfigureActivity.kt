@@ -2,23 +2,21 @@ package org.fossify.contacts.activities
 
 import android.appwidget.AppWidgetManager
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import org.fossify.commons.extensions.hasPermission
-import org.fossify.commons.extensions.launchActivityIntent
 import org.fossify.commons.extensions.toast
-import org.fossify.commons.extensions.tryInitiateCall
 import org.fossify.commons.extensions.viewBinding
 import org.fossify.commons.helpers.CONTACT_ID
 import org.fossify.commons.helpers.ContactsHelper
 import org.fossify.commons.helpers.IS_PRIVATE
 import org.fossify.commons.helpers.LocalContactsHelper
-import org.fossify.commons.helpers.PERMISSION_CALL_PHONE
 import org.fossify.commons.helpers.PERMISSION_READ_CONTACTS
+import org.fossify.commons.helpers.ensureBackgroundThread
 import org.fossify.commons.models.contacts.Contact
 import org.fossify.contacts.R
 import org.fossify.contacts.adapters.SelectContactsAdapter
 import org.fossify.contacts.databinding.WidgetConfigureMyBinding
+import org.fossify.contacts.extensions.startCallIntent
 import org.fossify.contacts.widgets.MyWidgetProvider
 
 // Dementia fork: configuration screen for the direct-call widget. The user picks a contact,
@@ -95,12 +93,17 @@ class MyWidgetConfigureActivity : SimpleActivity() {
     private fun contactSelected(contact: Contact) {
         MyWidgetProvider.storeContactId(this, appWidgetId, contact.id, contact.isPrivate())
 
-        val appWidgetManager = AppWidgetManager.getInstance(this)
-        MyWidgetProvider.updateWidget(this, appWidgetManager, appWidgetId)
+        // resolving the contact touches the contacts DB, keep it off the main thread
+        ensureBackgroundThread {
+            val appWidgetManager = AppWidgetManager.getInstance(this)
+            MyWidgetProvider.updateWidget(this, appWidgetManager, appWidgetId)
 
-        val resultValue = Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-        setResult(RESULT_OK, resultValue)
-        finish()
+            runOnUiThread {
+                val resultValue = Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                setResult(RESULT_OK, resultValue)
+                finish()
+            }
+        }
     }
 
     // called when the widget itself is tapped, resolves the number and calls it right away
@@ -114,30 +117,29 @@ class MyWidgetConfigureActivity : SimpleActivity() {
             return
         }
 
-        val contact = if (isPrivate) {
-            LocalContactsHelper(this).getContactWithId(contactId)
-        } else {
-            ContactsHelper(this).getContactWithId(contactId, false)
-        }
+        // resolving the contact touches the contacts DB, keep it off the main thread
+        ensureBackgroundThread {
+            val contact = if (isPrivate) {
+                LocalContactsHelper(this).getContactWithId(contactId)
+            } else {
+                ContactsHelper(this).getContactWithId(contactId, false)
+            }
 
-        if (contact == null) {
-            toast(R.string.widget_contact_deleted)
-            return
-        }
-
-        if (contact.phoneNumbers.isEmpty()) {
-            toast(org.fossify.commons.R.string.no_phone_number_found)
-            return
-        }
-
-        // no confirmation dialog, the tap on the widget is the confirmation
-        tryInitiateCall(contact) { number ->
-            handlePermission(PERMISSION_CALL_PHONE) { granted ->
-                val action = if (granted) Intent.ACTION_CALL else Intent.ACTION_DIAL
-                Intent(action).apply {
-                    data = Uri.fromParts("tel", number, null)
-                    launchActivityIntent(this)
+            runOnUiThread {
+                if (contact == null) {
+                    toast(R.string.widget_contact_deleted)
+                    return@runOnUiThread
                 }
+
+                if (contact.phoneNumbers.isEmpty()) {
+                    toast(org.fossify.commons.R.string.no_phone_number_found)
+                    return@runOnUiThread
+                }
+
+                // no confirmation dialog, the tap on the widget is the confirmation.
+                // call the primary number if one is marked, otherwise the first one
+                val number = contact.phoneNumbers.find { it.isPrimary }?.value ?: contact.phoneNumbers.first().value
+                startCallIntent(number)
             }
         }
     }

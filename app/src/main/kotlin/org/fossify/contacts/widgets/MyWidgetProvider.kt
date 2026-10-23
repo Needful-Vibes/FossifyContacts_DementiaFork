@@ -18,6 +18,7 @@ import org.fossify.commons.helpers.CONTACT_ID
 import org.fossify.commons.helpers.ContactsHelper
 import org.fossify.commons.helpers.IS_PRIVATE
 import org.fossify.commons.helpers.PERMISSION_READ_CONTACTS
+import org.fossify.commons.helpers.ensureBackgroundThread
 import org.fossify.commons.models.contacts.Contact
 import org.fossify.contacts.R
 import org.fossify.contacts.activities.MyWidgetConfigureActivity
@@ -25,8 +26,11 @@ import org.fossify.contacts.activities.MyWidgetConfigureActivity
 class MyWidgetProvider : AppWidgetProvider() {
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
-        appWidgetIds.forEach { appWidgetId ->
-            updateWidget(context, appWidgetManager, appWidgetId)
+        // resolving contacts touches the contacts DB, AppWidgetProvider callbacks run on the main thread
+        ensureBackgroundThread {
+            appWidgetIds.forEach { appWidgetId ->
+                updateWidget(context, appWidgetManager, appWidgetId)
+            }
         }
     }
 
@@ -37,7 +41,9 @@ class MyWidgetProvider : AppWidgetProvider() {
         newOptions: Bundle
     ) {
         // the widget was resized, the name fitting depends on the available width
-        updateWidget(context, appWidgetManager, appWidgetId, newOptions)
+        ensureBackgroundThread {
+            updateWidget(context, appWidgetManager, appWidgetId, newOptions)
+        }
     }
 
     override fun onDeleted(context: Context, appWidgetIds: IntArray) {
