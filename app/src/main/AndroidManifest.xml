@@ -237,6 +237,32 @@
             android:name=".receivers.AutomaticBackupReceiver"
             android:exported="false" />
 
+        <activity
+            android:name=".activities.MyWidgetConfigureActivity"
+            android:configChanges="orientation"
+            android:exported="false"
+            android:label="@string/widget_call_contact"
+            android:theme="@style/TranslucentTheme">
+
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
+        <receiver
+            android:name=".widgets.MyWidgetProvider"
+            android:exported="false"
+            android:label="@string/widget_call_contact">
+
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/my_widget_provider_info" />
+        </receiver>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.provider"
