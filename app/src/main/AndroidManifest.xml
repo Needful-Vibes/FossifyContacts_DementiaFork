@@ -237,11 +237,18 @@
             android:name=".receivers.AutomaticBackupReceiver"
             android:exported="false" />
 
+        <!-- Dementia fork: exported only for the APPWIDGET_CONFIGURE intent; no tel:/CALL
+             intent filter, so this activity never takes over dialer actions from
+             the FossifyPhone dialer or the system default dialer.
+             noHistory + excludeFromRecents keep it out of the recents/back stack so
+             the Contacts app is not left open after a call started from the widget. -->
         <activity
             android:name=".activities.MyWidgetConfigureActivity"
             android:configChanges="orientation"
+            android:excludeFromRecents="true"
             android:exported="true"
             android:label="@string/widget_call_contact"
+            android:noHistory="true"
             android:theme="@style/MyWidgetConfigTheme">
 
             <intent-filter>

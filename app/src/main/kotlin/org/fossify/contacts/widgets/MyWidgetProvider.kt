@@ -6,7 +6,6 @@ import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
-import android.net.Uri
 import android.os.Bundle
 import android.util.TypedValue
 import android.view.View
@@ -54,6 +53,10 @@ class MyWidgetProvider : AppWidgetProvider() {
     }
 
     companion object {
+        // custom action for the widget tap PendingIntent; deliberately not ACTION_CALL
+        // so the widget cannot interfere with the system/default dialer
+        const val ACTION_WIDGET_CALL = "org.fossify.contacts.action.WIDGET_CALL"
+
         // widget sizes below this threshold are treated as "icon only", without any text
         private const val ICON_ONLY_MAX_WIDTH_DP = 70
         // width in dp below which we prefer showing just the first name instead of the full name
@@ -161,9 +164,11 @@ class MyWidgetProvider : AppWidgetProvider() {
             val contactId = prefs.getInt(getContactIdKey(appWidgetId), 0)
             val isPrivate = prefs.getBoolean(getContactPrivateKey(appWidgetId), false)
 
+            // use a custom action instead of ACTION_CALL: the activity has no intent
+            // filter for tel:/CALL, so the system dialer resolution (and the
+            // FossifyPhone DialerActivity) is never bypassed or hijacked by the widget
             val intent = Intent(context, MyWidgetConfigureActivity::class.java).apply {
-                action = Intent.ACTION_CALL
-                data = Uri.fromParts("tel", "$contactId", null)
+                action = ACTION_WIDGET_CALL
                 putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
                 putExtra(CONTACT_ID, contactId)
                 putExtra(IS_PRIVATE, isPrivate)

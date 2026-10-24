@@ -4,6 +4,7 @@ import android.appwidget.AppWidgetManager
 import android.content.Intent
 import android.os.Bundle
 import org.fossify.commons.extensions.hasPermission
+import org.fossify.commons.extensions.launchCallIntent
 import org.fossify.commons.extensions.toast
 import org.fossify.commons.extensions.viewBinding
 import org.fossify.commons.helpers.CONTACT_ID
@@ -16,7 +17,6 @@ import org.fossify.commons.models.contacts.Contact
 import org.fossify.contacts.R
 import org.fossify.contacts.adapters.SelectContactsAdapter
 import org.fossify.contacts.databinding.WidgetConfigureMyBinding
-import org.fossify.contacts.extensions.startCallIntent
 import org.fossify.contacts.widgets.MyWidgetProvider
 
 // Dementia fork: configuration screen for the direct-call widget. The user picks a contact,
@@ -40,8 +40,10 @@ class MyWidgetConfigureActivity : SimpleActivity() {
             return
         }
 
-        // this activity is also the tap target of the widget, it performs the direct call
-        if (intent?.action == Intent.ACTION_CALL) {
+        // this activity is also the tap target of the widget, it performs the direct call.
+        // the widget uses a custom action (not ACTION_CALL) so the system never routes
+        // tel: intents through this activity and the FossifyPhone dialer stays in charge
+        if (intent?.action == MyWidgetProvider.ACTION_WIDGET_CALL) {
             callContactFromWidget(intent.getIntExtra(CONTACT_ID, 0), intent.getBooleanExtra(IS_PRIVATE, false))
             finish()
             return
@@ -137,9 +139,13 @@ class MyWidgetConfigureActivity : SimpleActivity() {
                 }
 
                 // no confirmation dialog, the tap on the widget is the confirmation.
-                // call the primary number if one is marked, otherwise the first one
+                // call the primary number if one is marked, otherwise the first one.
+                // use commons launchCallIntent: it routes through the FossifyPhone
+                // DialerActivity when that app is the default dialer, so the
+                // "calls use speaker by default" feature of the phone app applies
+                // also to calls started from this widget
                 val number = contact.phoneNumbers.find { it.isPrimary }?.value ?: contact.phoneNumbers.first().value
-                startCallIntent(number)
+                launchCallIntent(number)
             }
         }
     }

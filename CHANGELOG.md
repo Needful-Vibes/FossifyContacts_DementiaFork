@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added a home screen widget that calls the selected contact directly when tapped, without a confirmation
 
+### Fixed
+- Widget calls now go through the default dialer (FossifyPhone) so the "calls use speaker by default" setting applies, and the widget no longer interferes with dialer action resolution
+- The Contacts app is no longer left open in the background after a call started from the widget
+
 ## [1.6.0] - 2026-01-30
 ### Added
 - Added support for custom fonts
