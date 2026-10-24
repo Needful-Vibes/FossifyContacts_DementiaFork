@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dementia fork: simple, high-contrast widget colors on a white background -->
+    <color name="widget_background_color">#FFFFFF</color>
+    <color name="widget_text_color">#000000</color>
+    <color name="widget_icon_color">#388E3C</color>
+</resources>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/widget_configure_holder"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <org.fossify.commons.views.MyTextView
+        android:id="@+id/widget_configure_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:padding="@dimen/activity_margin"
+        android:text="@string/widget_select_contact_to_call"
+        android:textSize="@dimen/bigger_text_size"
+        android:textStyle="bold" />
+
+    <org.fossify.commons.views.MyRecyclerView
+        android:id="@+id/widget_configure_list"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipToPadding="false"
+        android:paddingEnd="@dimen/big_margin"
+        android:scrollbars="none"
+        app:layoutManager="org.fossify.commons.views.MyLinearLayoutManager" />
+
+</LinearLayout>

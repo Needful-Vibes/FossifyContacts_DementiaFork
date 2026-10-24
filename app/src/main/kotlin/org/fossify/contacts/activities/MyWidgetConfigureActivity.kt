@@ -1,0 +1,178 @@
+package org.fossify.contacts.activities
+
+import android.appwidget.AppWidgetManager
+import android.content.Intent
+import android.os.Bundle
+import org.fossify.commons.extensions.hasPermission
+import org.fossify.commons.extensions.launchCallIntent
+import org.fossify.commons.extensions.toast
+import org.fossify.commons.extensions.viewBinding
+import org.fossify.commons.helpers.CONTACT_ID
+import org.fossify.commons.helpers.ContactsHelper
+import org.fossify.commons.helpers.IS_PRIVATE
+import org.fossify.commons.helpers.LocalContactsHelper
+import org.fossify.commons.helpers.PERMISSION_CALL_PHONE
+import org.fossify.commons.helpers.PERMISSION_READ_CONTACTS
+import org.fossify.commons.helpers.ensureBackgroundThread
+import org.fossify.commons.models.contacts.Contact
+import org.fossify.contacts.R
+import org.fossify.contacts.adapters.SelectContactsAdapter
+import org.fossify.contacts.databinding.WidgetConfigureMyBinding
+import org.fossify.contacts.widgets.MyWidgetProvider
+
+// Dementia fork: configuration screen for the direct-call widget. The user picks a contact,
+// the widget is added immediately and tapping it later calls the contact without confirmation.
+class MyWidgetConfigureActivity : SimpleActivity() {
+    private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+    private val binding by viewBinding(WidgetConfigureMyBinding::inflate)
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        // fixed widget config theme, dynamic theming would break the look of the picker
+        useDynamicTheme = false
+        super.onCreate(savedInstanceState)
+        setContentView(binding.root)
+
+        setResult(RESULT_CANCELED)
+        appWidgetId = intent?.extras?.getInt(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
+            ?: AppWidgetManager.INVALID_APPWIDGET_ID
+
+        if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) {
+            finish()
+            return
+        }
+
+        // this activity is also the tap target of the widget, it performs the direct call.
+        // the widget uses a custom action (not ACTION_CALL) so the system never routes
+        // tel: intents through this activity and the FossifyPhone dialer stays in charge.
+        // the activity must stay alive until the call intent is fired (or the call
+        // permission is granted), otherwise launchCallIntent's permission request
+        // would be dropped - so do not finish() here
+        if (intent?.action == MyWidgetProvider.ACTION_WIDGET_CALL) {
+            callContactFromWidget(intent.getIntExtra(CONTACT_ID, 0), intent.getBooleanExtra(IS_PRIVATE, false))
+            return
+        }
+
+        setupEdgeToEdge(padBottomSystem = listOf(binding.widgetConfigureList))
+
+        handlePermission(PERMISSION_READ_CONTACTS) { granted ->
+            if (granted) {
+                loadContacts()
+            } else {
+                toast(org.fossify.commons.R.string.no_contacts_permission)
+                finish()
+            }
+        }
+    }
+
+    private fun loadContacts() {
+        ContactsHelper(this).getContacts(showOnlyContactsWithNumbers = true) { contacts ->
+            runOnUiThread {
+                if (isDestroyed || isFinishing) {
+                    return@runOnUiThread
+                }
+
+                if (contacts.isEmpty()) {
+                    toast(R.string.no_contacts_with_phone_numbers)
+                    finish()
+                    return@runOnUiThread
+                }
+
+                setupContactsList(contacts)
+            }
+        }
+    }
+
+    private fun setupContactsList(contacts: ArrayList<Contact>) {
+        val adapter = SelectContactsAdapter(
+            activity = this,
+            contacts = contacts,
+            selectedContacts = ArrayList(),
+            allowPickMultiple = false,
+            recyclerView = binding.widgetConfigureList,
+        ) { contact ->
+            contactSelected(contact)
+        }
+        binding.widgetConfigureList.adapter = adapter
+    }
+
+    private fun contactSelected(contact: Contact) {
+        MyWidgetProvider.storeContactId(this, appWidgetId, contact.id, contact.isPrivate())
+
+        // resolving the contact touches the contacts DB, keep it off the main thread
+        ensureBackgroundThread {
+            val appWidgetManager = AppWidgetManager.getInstance(this)
+            MyWidgetProvider.updateWidget(this, appWidgetManager, appWidgetId)
+
+            runOnUiThread {
+                val resultValue = Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                setResult(RESULT_OK, resultValue)
+                finish()
+            }
+        }
+    }
+
+    // called when the widget itself is tapped, resolves the number and calls it right away
+    private fun callContactFromWidget(contactId: Int, isPrivate: Boolean) {
+        if (contactId == 0) {
+            finish()
+            return
+        }
+
+        if (!hasPermission(PERMISSION_READ_CONTACTS)) {
+            toast(org.fossify.commons.R.string.no_contacts_permission)
+            finish()
+            return
+        }
+
+        // resolving the contact touches the contacts DB, keep it off the main thread
+        ensureBackgroundThread {
+            val contact = if (isPrivate) {
+                LocalContactsHelper(this).getContactWithId(contactId)
+            } else {
+                ContactsHelper(this).getContactWithId(contactId, false)
+            }
+
+            runOnUiThread {
+                if (contact == null) {
+                    toast(R.string.widget_contact_deleted)
+                    finish()
+                    return@runOnUiThread
+                }
+
+                if (contact.phoneNumbers.isEmpty()) {
+                    toast(org.fossify.commons.R.string.no_phone_number_found)
+                    finish()
+                    return@runOnUiThread
+                }
+
+                // no confirmation dialog, the tap on the widget is the confirmation.
+                // call the primary number if one is marked, otherwise the first one.
+                // use commons launchCallIntent: it routes through the FossifyPhone
+                // DialerActivity when that app is the default dialer, so the
+                // "calls use speaker by default" feature of the phone app applies
+                // also to calls started from this widget
+                val number = contact.phoneNumbers.find { it.isPrimary }?.value ?: contact.phoneNumbers.first().value
+                callNumber(number)
+            }
+        }
+    }
+
+    // launchCallIntent asks for the call permission when missing; the activity must
+    // stay alive until the permission dialog is answered, otherwise the pending
+    // permission callback is dropped and the call never starts
+    private fun callNumber(number: String) {
+        if (hasPermission(PERMISSION_CALL_PHONE)) {
+            launchCallIntent(number)
+            finish()
+        } else {
+            handlePermission(PERMISSION_CALL_PHONE) { granted ->
+                if (granted) {
+                    launchCallIntent(number)
+                } else {
+                    toast(org.fossify.commons.R.string.no_phone_call_permission)
+                }
+                finish()
+            }
+        }
+    }
+}
