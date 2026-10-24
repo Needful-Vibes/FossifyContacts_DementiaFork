@@ -240,15 +240,16 @@
         <!-- Dementia fork: exported only for the APPWIDGET_CONFIGURE intent; no tel:/CALL
              intent filter, so this activity never takes over dialer actions from
              the FossifyPhone dialer or the system default dialer.
-             noHistory + excludeFromRecents keep it out of the recents/back stack so
-             the Contacts app is not left open after a call started from the widget. -->
+             excludeFromRecents keeps it out of the recents/back stack so the Contacts
+             app is not left open after a call started from the widget.
+             noHistory is deliberately NOT set: the tap target must stay alive until
+             the call permission dialog is answered, otherwise the pending call dies. -->
         <activity
             android:name=".activities.MyWidgetConfigureActivity"
             android:configChanges="orientation"
             android:excludeFromRecents="true"
             android:exported="true"
             android:label="@string/widget_call_contact"
-            android:noHistory="true"
             android:theme="@style/MyWidgetConfigTheme">
 
             <intent-filter>

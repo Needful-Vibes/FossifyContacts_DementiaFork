@@ -11,6 +11,7 @@ import org.fossify.commons.helpers.CONTACT_ID
 import org.fossify.commons.helpers.ContactsHelper
 import org.fossify.commons.helpers.IS_PRIVATE
 import org.fossify.commons.helpers.LocalContactsHelper
+import org.fossify.commons.helpers.PERMISSION_CALL_PHONE
 import org.fossify.commons.helpers.PERMISSION_READ_CONTACTS
 import org.fossify.commons.helpers.ensureBackgroundThread
 import org.fossify.commons.models.contacts.Contact
@@ -42,10 +43,12 @@ class MyWidgetConfigureActivity : SimpleActivity() {
 
         // this activity is also the tap target of the widget, it performs the direct call.
         // the widget uses a custom action (not ACTION_CALL) so the system never routes
-        // tel: intents through this activity and the FossifyPhone dialer stays in charge
+        // tel: intents through this activity and the FossifyPhone dialer stays in charge.
+        // the activity must stay alive until the call intent is fired (or the call
+        // permission is granted), otherwise launchCallIntent's permission request
+        // would be dropped - so do not finish() here
         if (intent?.action == MyWidgetProvider.ACTION_WIDGET_CALL) {
             callContactFromWidget(intent.getIntExtra(CONTACT_ID, 0), intent.getBooleanExtra(IS_PRIVATE, false))
-            finish()
             return
         }
 
@@ -111,11 +114,13 @@ class MyWidgetConfigureActivity : SimpleActivity() {
     // called when the widget itself is tapped, resolves the number and calls it right away
     private fun callContactFromWidget(contactId: Int, isPrivate: Boolean) {
         if (contactId == 0) {
+            finish()
             return
         }
 
         if (!hasPermission(PERMISSION_READ_CONTACTS)) {
             toast(org.fossify.commons.R.string.no_contacts_permission)
+            finish()
             return
         }
 
@@ -130,11 +135,13 @@ class MyWidgetConfigureActivity : SimpleActivity() {
             runOnUiThread {
                 if (contact == null) {
                     toast(R.string.widget_contact_deleted)
+                    finish()
                     return@runOnUiThread
                 }
 
                 if (contact.phoneNumbers.isEmpty()) {
                     toast(org.fossify.commons.R.string.no_phone_number_found)
+                    finish()
                     return@runOnUiThread
                 }
 
@@ -145,7 +152,26 @@ class MyWidgetConfigureActivity : SimpleActivity() {
                 // "calls use speaker by default" feature of the phone app applies
                 // also to calls started from this widget
                 val number = contact.phoneNumbers.find { it.isPrimary }?.value ?: contact.phoneNumbers.first().value
-                launchCallIntent(number)
+                callNumber(number)
+            }
+        }
+    }
+
+    // launchCallIntent asks for the call permission when missing; the activity must
+    // stay alive until the permission dialog is answered, otherwise the pending
+    // permission callback is dropped and the call never starts
+    private fun callNumber(number: String) {
+        if (hasPermission(PERMISSION_CALL_PHONE)) {
+            launchCallIntent(number)
+            finish()
+        } else {
+            handlePermission(PERMISSION_CALL_PHONE) { granted ->
+                if (granted) {
+                    launchCallIntent(number)
+                } else {
+                    toast(org.fossify.commons.R.string.no_phone_call_permission)
+                }
+                finish()
             }
         }
     }
